@@ -21,6 +21,7 @@ struct Shell {
 }
 
 impl Shell {
+
     fn new(prompt_str: &str) -> Shell {
         Shell {
             cmd_prompt: prompt_str.to_owned(),
@@ -29,6 +30,8 @@ impl Shell {
     
     fn run(&mut self) {
         let mut stdin = BufferedReader::new(stdin());
+
+        let mut cmdHist: ~[str];
         
         loop {
             print(self.cmd_prompt);
@@ -41,6 +44,8 @@ impl Shell {
             match program {
                 ""      =>  { continue; }
                 "exit"  =>  { return; }
+                "cd"    =>  { self.run_cd(cmd_line); }
+                "history" => { self.run_history(); }
                 _       =>  { self.run_cmdline(cmd_line); }
             }
         }
@@ -67,6 +72,28 @@ impl Shell {
     fn cmd_exists(&mut self, cmd_path: &str) -> bool {
         let ret = run::process_output("which", [cmd_path.to_owned()]);
         return ret.expect("exit code error.").status.success();
+    }
+
+    fn run_cd(&mut self, cmd_line: &str) {
+        let arguments: ~[&str] = cmd_line.split(' ').collect(); 
+        if(arguments.len() == 2) {
+            let dir = arguments[1].clone();
+            let path = Path::new(dir.clone());
+            if(os::change_dir(&path)){
+                let cwd = os::getcwd();
+                println!("{}", cwd.display());
+            }
+            else{
+                println("Directory does not exist.");
+            }
+        }
+        else {
+            println("Please input only one argument.");
+        }
+    }
+
+    fn run_history(&mut self) {
+
     }
 }
 
