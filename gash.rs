@@ -31,7 +31,7 @@ impl Shell {
     fn run(&mut self) {
         let mut stdin = BufferedReader::new(stdin());
 
-        let mut cmdHist: ~[str];
+        let mut cmdHist = ~[];
         
         loop {
             print(self.cmd_prompt);
@@ -39,13 +39,14 @@ impl Shell {
             
             let line = stdin.read_line().unwrap();
             let cmd_line = line.trim().to_owned();
+            cmdHist.push(cmd_line.clone());
             let program = cmd_line.splitn(' ', 1).nth(0).expect("no program");
             
             match program {
                 ""      =>  { continue; }
                 "exit"  =>  { return; }
                 "cd"    =>  { self.run_cd(cmd_line); }
-                "history" => { self.run_history(); }
+                "history" => { self.run_history(cmdHist.clone()); }
                 _       =>  { self.run_cmdline(cmd_line); }
             }
         }
@@ -92,8 +93,10 @@ impl Shell {
         }
     }
 
-    fn run_history(&mut self) {
-
+    fn run_history(&mut self, cmd_hist: ~[~str]) {
+        for i in range(0, cmd_hist.len()) { 
+            println!("{}", cmd_hist[i]);
+        }
     }
 }
 
