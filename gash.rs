@@ -63,10 +63,17 @@ impl Shell {
     }
     
     fn run_cmd(&mut self, program: &str, argv: &[~str]) {
-        if self.cmd_exists(program) {
-            run::process_status(program, argv);
-        } else {
-            println!("{:s}: command not found", program);
+        if(argv.len() > 0){
+            if(argv[argv.len()-1] == ~"&") {
+                spawn(proc() { run::process_status(program, argv);});
+            }
+        }
+        else{
+            if self.cmd_exists(program) {
+                run::process_status(program, argv);
+            } else {
+                println!("{:s}: command not found", program);
+            }
         }
     }
     
