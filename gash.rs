@@ -14,6 +14,7 @@ extern mod extra;
 use std::{io, run, os};
 use std::io::buffered::BufferedReader;
 use std::io::stdin;
+use std::str;
 use extra::getopts;
 
 struct Shell {
@@ -72,6 +73,7 @@ impl Shell {
                     let ifExists: bool = ret.expect("exit code error.").status.success();
                     if ifExists {
                         run::process_status(tempProgram, tempArgv);
+
                     } else {
                         println!("{:s}: command not found", tempProgram);
                     }
@@ -80,7 +82,10 @@ impl Shell {
         }
         else{
             if self.cmd_exists(program) {
-                run::process_status(program, argv);
+                let output_options = run::process_output(program, argv);
+                let output_bytes: ~[u8] = output_options.unwrap().output;
+                let s = str::from_utf8(output_bytes);
+                println!("Output from command that was run in the background:\n{:s}",s);
             } else {
                 println!("{:s}: command not found", program);
             }
