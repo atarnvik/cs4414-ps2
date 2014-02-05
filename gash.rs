@@ -65,7 +65,17 @@ impl Shell {
     fn run_cmd(&mut self, program: &str, argv: &[~str]) {
         if(argv.len() > 0){
             if(argv[argv.len()-1] == ~"&") {
-                spawn(proc() { run::process_status(program, argv);});
+                let tempProgram: ~str = program.clone().to_owned();
+                let tempArgv: ~[~str] = argv.clone().to_owned();
+                spawn(proc() { 
+                    let ret = run::process_output("which", [tempProgram.to_owned()]);
+                    let ifExists: bool = ret.expect("exit code error.").status.success();
+                    if ifExists {
+                        run::process_status(tempProgram, tempArgv);
+                    } else {
+                        println!("{:s}: command not found", tempProgram);
+                    }
+                });
             }
         }
         else{
