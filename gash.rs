@@ -32,6 +32,20 @@ impl Shell {
     }
     
     fn run(&mut self) {
+
+        
+        spawn(proc() {
+            let mut listener = Listener::new();
+            listener.register(Interrupt);
+            loop {
+                match listener.port.recv() {
+                    Interrupt => (),
+                    _ => (),
+                }
+            }
+        });
+
+
         let mut stdin = BufferedReader::new(stdin());
 
         let mut cmdHist = ~[];
@@ -84,21 +98,16 @@ impl Shell {
         }
         else{
             if self.cmd_exists(program) {
-                let output_options = run::process_output(program, argv);
-                spawn(proc() {
-                    let mut listener = Listener::new();
-                    listener.register(Interrupt);
-                    loop {
-                        match listener.port.recv() {
-                            Interrupt => run::process_output(program, argv).finish(),
-                            _ => (),
-                        }
-                    }
-                });
-                    
-                let output_bytes: ~[u8] = output_options.unwrap().output;
-                let s = str::from_utf8(output_bytes);
-                println!("Output from command that was run in the background:\n{:s}",s);
+                let output_options = run::process_status(program, argv);
+
+                // loop {
+                //     let output_bytes: &~[u8] = &output_options.unwrap().output;
+                //     //let output_bytes_new = str::from_utf8(output_bytes.to_owned());
+                //     //let s = str::from_utf8(output_bytes.clone().to_owned());
+                //     println(output_bytes.to_str());
+                // }
+                
+                //println!("Output from command that was run in the background:\n{:s}",s);
             } else {
                 println!("{:s}: command not found", program);
             }
