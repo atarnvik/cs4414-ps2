@@ -13,6 +13,8 @@ extern mod extra;
 
 use std::{io, run, os};
 use std::io::buffered::BufferedReader;
+use std::io::signal::{Listener, Interrupt};
+use std::run::Process;
 use std::io::stdin;
 use std::str;
 use extra::getopts;
@@ -83,6 +85,17 @@ impl Shell {
         else{
             if self.cmd_exists(program) {
                 let output_options = run::process_output(program, argv);
+                spawn(proc() {
+                    let mut listener = Listener::new();
+                    listener.register(Interrupt);
+                    loop {
+                        match listener.port.recv() {
+                            Interrupt => run::process_output(program, argv).finish(),
+                            _ => (),
+                        }
+                    }
+                });
+                    
                 let output_bytes: ~[u8] = output_options.unwrap().output;
                 let s = str::from_utf8(output_bytes);
                 println!("Output from command that was run in the background:\n{:s}",s);
