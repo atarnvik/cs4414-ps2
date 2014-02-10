@@ -65,6 +65,7 @@ impl Shell {
             
             match program {
                 ""      =>  { continue; }
+                "!!" => { self.last_command(cmdHist.clone()); }
                 "exit"  =>  { return; }
                 "cd"    =>  { self.run_cd(cmd_line); }
                 "history" =>   { self.run_history(cmdHist.clone()); }
@@ -95,11 +96,11 @@ impl Shell {
         let elements_size = elements.len();
         if (elements.last() == &~"&") {
             background = 1;
-            println!("Background!");
             elements.remove(elements_size-1);
+
         }
         //calls process using the commands, the state, and the background flag
-        self.process(commands, state, background);
+        process(commands, state, background);
         //old stuff
         let mut argv: ~[~str] =
             cmd_line.split(' ').filter_map(|x| if x != "" { Some(x.to_owned()) } else { None }).to_owned_vec();
@@ -109,169 +110,9 @@ impl Shell {
             self.run_cmd(program, argv);
         }
     }
-    
-    fn process(&mut self, cmds: &[~str], state: &[int], background: int) {
-        let commands = cmds.clone();
-        let mut buffer: ~[u8] = ~[];
-        //check to see if first redirect is <. If so, read file into buffer
-            let input_filename = commands[0].trim().clone();
-            let input_file_path = Path::new(input_filename.clone());
-            let input_file = File::open(&input_file_path);
-            match input_file {
-                Some(mut file) => {
-                     buffer = file.read_to_end();
-                } ,
-                _ => {
-                    fail!("Error opening input file!");
-                    return;
-                } 
-            }
-        //for loop for iterating through commands
-       for i in range (0,state.len()) {
-            if (state[i] == 0) {
-                let input_filename = commands[i+1].trim().clone();
-                let input_file_path = Path::new(input_filename.clone());
-                let input_file = File::open(&input_file_path);
-                match input_file {
-                    Some(mut file) => {
-                         buffer = file.read_to_end();
-                         let temp_buffer: ~[u8] = self.redirect_input(commands[i],buffer);
-                         buffer = temp_buffer.clone();
-                    } ,
-                    _ => {
-                        fail!("Error opening input file!");
-                        return;
-                    } 
-                }
-                println!("buffer = output of {:s} fed to {:s}",commands[i+1].trim(),commands[i].trim());
-            } else if state[i] == 2 {
-                println!("buffer = output of {:s} fed to {:s}",commands[i-1].trim(), commands[i+1]);
-                let temp_buffer: ~[u8] = self.redirect_input(commands[i+1],buffer);
-                buffer = temp_buffer.clone();
-            } else {
-                println!("Write buffer to file {:s}",commands[i+1].trim());
-                self.write_to_file(commands[i+1],buffer.clone());
-            }
-        }
-
-        //final output in the foreground
-        if background == 0 {
-
-        } 
-        // final output in background
-        else {
-
-        }
-
-    }
-
-    fn redirect_input(&mut self, cmd_line: &str, input: ~[u8]) -> ~[u8]{
-        //Get command line
-        let mut argv: ~[~str] =
-            cmd_line.split(' ').filter_map(|x| if x != "" { Some(x.to_owned()) } else { None }).to_owned_vec();
-        let program: ~str = argv.remove(0);
-        let Process_Options = run::ProcessOptions {env: None, dir: None, in_fd: None , out_fd: None, err_fd: None};
-        let process  = run::Process::new(program,argv,Process_Options);
-        let mut bytes: ~[u8] = ~[];
-        match(process) {
-            Some(mut p)  => {        
-                for i in range (0, input.len()) {      
-                    p.input().write_u8(input[i]);
-                }
-                println!("Input written.");
-                //let reader = p.output();
-                //bytes = reader.read_to_end();
-                bytes = p.finish_with_output().output;
-            },
-            None => ()
-        }
-        
-        println!("output = {:s}", str::from_utf8(bytes)); 
-
-        return bytes;
-    }
-
-    fn write_to_file(&mut self, filename: &str, output: ~[u8]) {
-        let mut output_file = File::create(&Path::new(filename));
-        output_file.write(output);
-    }
 
     //maybe return a pointer to a buffer?
-    fn redirect_output(&mut self, cmd_line: &str, background: int) {
-        if (background == 1) {
-            println!("Redirect Output in the background.");
 
-            let mut argv: ~[~str] =
-                cmd_line.split(' ').filter_map(|x| if x != "" { Some(x.to_owned()) } else { None }).to_owned_vec();
-            let argcount = argv.len();
-            if argcount > 0 {
-                let program: ~str = argv.remove(0);
-                let rightArrowIndex = vector_contains(">",argv);
-                if (rightArrowIndex >= 0) {
-                    let mut filename = argv[rightArrowIndex + 1].to_owned();
-                    argv.remove(argcount-2);
-                    argv.remove(rightArrowIndex);
-                    argv.remove(rightArrowIndex);
-                    let tempProgram: ~str = program.clone().to_owned();
-                    let tempArgv: ~[~str] = argv.clone().to_owned();
-                    let tempFilename: ~str = filename.clone().to_owned();
-                    spawn(proc() { 
-                        let ret = run::process_output("which", [tempProgram.to_owned()]);
-                        let ifExists: bool = ret.expect("exit code error.").status.success();
-                        if ifExists {
-                            let mut output_file = File::create(&Path::new(tempFilename));
-                            let Process_Options = run::ProcessOptions {env: None, dir: None, in_fd: None, out_fd: None, err_fd: None};
-                            let process  = run::Process::new(tempProgram,tempArgv,Process_Options);
-                            match(process) {
-                                Some(mut p)  => {
-                                    let reader = p.output();
-                                    while(true) {
-                                        match reader.read_byte(){
-                                            Some (byte) => output_file.write_u8(byte),
-                                            None => break
-                                        }
-                                    }
-                                    //let r = p.finish_with_output().output;
-                                    //println!("output = {:s}", str::from_utf8(bytes)); 
-
-                                },
-                                None => ()
-                            }
-                        } else {
-                            println!("{:s}: command not found", tempProgram);
-                        }
-                    });
-
-                }
-            }
-        } else {
-            println!("Redirect Output in the foreground."); 
-            let mut argv: ~[~str] =
-                cmd_line.split(' ').filter_map(|x| if x != "" { Some(x.to_owned()) } else { None }).to_owned_vec();
-            let program: ~str = argv.remove(0);
-            let rightArrowIndex = vector_contains(">",argv);
-            let mut filename = argv[rightArrowIndex + 1].to_owned();
-
-            let mut output_file = File::create(&Path::new(filename));
-            argv.remove(rightArrowIndex);
-            argv.remove(rightArrowIndex);
-            let Process_Options = run::ProcessOptions {env: None, dir: None, in_fd: None, out_fd: None, err_fd: None};
-            let process  = run::Process::new(program,argv,Process_Options);
-            match(process) {
-                Some(mut p)  => {
-                    let reader = p.output();
-                    let bytes = reader.read_to_end();
-                    //let r = p.finish_with_output().output;
-                    println!("output = {:s}", str::from_utf8(bytes)); 
-
-                    output_file.write(bytes);
-
-                },
-                None => ()
-
-            }
-        }
-    }
 
     fn run_cmd(&mut self, program: &str, argv: &[~str]) {
         if(argv.len() > 0){
@@ -309,7 +150,6 @@ impl Shell {
                 match(process) {
                     Some(mut p)  => {
                         let r = p.finish_with_output().output;
-                        println!("output = {:s}", str::from_utf8(r)); 
 
                     },
                     None => ()
@@ -365,6 +205,24 @@ impl Shell {
         }
     }
 
+    fn last_command(&mut self, cmdHist: ~[~str]) {
+        if(cmdHist.len() > 1) {
+            let cmd_line = cmdHist[cmdHist.len()-2];
+            println(cmd_line);
+            let program = cmd_line.splitn(' ', 1).nth(0).expect("no program");
+            
+            match program {
+                ""      =>  { }
+                "exit"  =>  { return; }
+                "cd"    =>  { self.run_cd(cmd_line); }
+                _       =>  { self.run_cmdline(cmd_line); }
+            }
+        }
+        else {
+            println("History is not large enough!");
+        }
+    }
+
     fn run_history(&mut self, cmd_hist: ~[~str]) {
         for i in range(0, cmd_hist.len()) { 
             println!("{}", cmd_hist[i]);
@@ -396,6 +254,174 @@ fn get_cmdline_from_args() -> Option<~str> {
     }
 }
 
+fn redirect_output(cmd_line: &str, background: int, filename: &str) {
+        if (background == 1) {
+
+            let mut argv: ~[~str] =
+                cmd_line.split(' ').filter_map(|x| if x != "" { Some(x.to_owned()) } else { None }).to_owned_vec();
+            let argcount = argv.len();
+            if argcount > 0 {
+            let program: ~str = argv.remove(0);
+            let tempProgram: ~str = program.clone().to_owned();
+            let tempArgv: ~[~str] = argv.clone().to_owned();
+            let tempFilename: ~str = filename.clone().to_owned();
+            spawn(proc() { 
+                let ret = run::process_output("which", [tempProgram.to_owned()]);
+                let ifExists: bool = ret.expect("exit code error.").status.success();
+                if ifExists {
+                    let mut output_file = File::create(&Path::new(tempFilename));
+                    let Process_Options = run::ProcessOptions {env: None, dir: None, in_fd: None, out_fd: None, err_fd: None};
+                    let process  = run::Process::new(tempProgram,tempArgv,Process_Options);
+                    match(process) {
+                        Some(mut p)  => {
+                            let reader = p.output();
+                            while(true) {
+                                match reader.read_byte(){
+                                    Some (byte) => output_file.write_u8(byte),
+                                    None => break
+                                }
+                            }
+                            //let r = p.finish_with_output().output;
+                            //println!("output = {:s}", str::from_utf8(bytes)); 
+
+                        },
+                        None => ()
+                    }
+                } else {
+                    println!("{:s}: command not found", tempProgram);
+                }
+            });
+         } else {
+            let mut argv: ~[~str] =
+                cmd_line.split(' ').filter_map(|x| if x != "" { Some(x.to_owned()) } else { None }).to_owned_vec();
+            let program: ~str = argv.remove(0);
+            let rightArrowIndex = vector_contains(">",argv);
+            let mut filename = argv[rightArrowIndex + 1].to_owned();
+
+            let mut output_file = File::create(&Path::new(filename));
+            argv.remove(rightArrowIndex);
+            argv.remove(rightArrowIndex);
+            let Process_Options = run::ProcessOptions {env: None, dir: None, in_fd: None, out_fd: None, err_fd: None};
+            let process  = run::Process::new(program,argv,Process_Options);
+            match(process) {
+                Some(mut p)  => {
+                    let reader = p.output();
+                    let bytes = reader.read_to_end();
+                    //let r = p.finish_with_output().output;
+
+                    output_file.write(bytes);
+
+                },
+                None => ()
+
+            }
+        }
+    }
+}
+
+    fn process(cmds: &[~str], state: &[int], background: int) {
+        let commands = cmds.clone();
+        let mut buffer: ~[u8] = ~[];
+
+        //for loop for iterating through commands
+        //if (state.len() == 0) {
+        //    Shell::new("").run_cmdline(commands[0]);
+        //}
+        for i in range (0,state.len()) {
+            if (state[i] == 0) {
+                let input_filename = commands[i+1].trim().clone();
+                let input_file_path = Path::new(input_filename.clone());
+                let input_file = File::open(&input_file_path);
+                match input_file {
+                    Some(mut file) => {
+                         buffer = file.read_to_end();
+                         let temp_buffer: ~[u8] = redirect_input(commands[i],buffer);
+                         buffer = temp_buffer.clone();
+                    } ,
+                    _ => {
+                        fail!("Error opening input file!");
+                        return;
+                    } 
+                }
+            } else if state[i] == 2 {
+                let temp_buffer: ~[u8] = redirect_input(commands[i+1],buffer);
+                buffer = temp_buffer.clone();
+            } else if (background == 1 && state[i] == 1) {
+                //run this last process in the background
+                redirect_output(commands[i],1,commands[i+1]);
+                break;
+            } else if state[i] == 1 {
+                write_to_file(commands[i+1],buffer.clone());
+            } else {
+                Shell::new("").run_cmdline(commands[i]);
+            }
+        }
+
+        //print out final output
+        println!("{:s}",str::from_utf8(buffer));
+
+    }
+
+    fn run_in_background(program: ~str, argv: ~[~str], filename: ~str) {
+        let tempProgram: ~str = program.clone().to_owned();
+        let tempArgv: ~[~str] = argv.clone().to_owned();
+        let tempFilename: ~str = filename.clone().to_owned();
+        spawn(proc() { 
+            let ret = run::process_output("which", [tempProgram.to_owned()]);
+            let ifExists: bool = ret.expect("exit code error.").status.success();
+            if ifExists {
+                let mut output_file = File::create(&Path::new(tempFilename));
+                let Process_Options = run::ProcessOptions {env: None, dir: None, in_fd: None, out_fd: None, err_fd: None};
+                let process  = run::Process::new(tempProgram,tempArgv,Process_Options);
+                match(process) {
+                    Some(mut p)  => {
+                        let reader = p.output();
+                        while(true) {
+                            match reader.read_byte(){
+                                Some (byte) => output_file.write_u8(byte),
+                                None => break
+                            }
+                        }
+                        //let r = p.finish_with_output().output;
+                        //println!("output = {:s}", str::from_utf8(bytes)); 
+
+                    },
+                    None => ()
+                }
+            } else {
+                println!("{:s}: command not found", tempProgram);
+            }
+        });
+    }
+
+    fn redirect_input(cmd_line: &str, input: ~[u8]) -> ~[u8]{
+        //Get command line
+        let mut argv: ~[~str] =
+            cmd_line.split(' ').filter_map(|x| if x != "" { Some(x.to_owned()) } else { None }).to_owned_vec();
+        let program: ~str = argv.remove(0);
+        let Process_Options = run::ProcessOptions {env: None, dir: None, in_fd: None , out_fd: None, err_fd: None};
+        let process  = run::Process::new(program,argv,Process_Options);
+        let mut bytes: ~[u8] = ~[];
+        match(process) {
+            Some(mut p)  => {        
+                for i in range (0, input.len()) {      
+                    p.input().write_u8(input[i]);
+                }
+                //let reader = p.output();
+                //bytes = reader.read_to_end();
+
+                bytes = p.finish_with_output().output;
+            },
+            None => ()
+        }
+        
+        return bytes;
+    }
+
+    fn write_to_file(filename: &str, output: ~[u8]) {
+        let mut output_file = File::create(&Path::new(filename));
+        output_file.write(output);
+    }
 //takes a vector and a string to look for. Checks to see any of the elements of the vector
 // match exactly. returns the integer of the first element that matches. Otherwise, returns -1.
 fn vector_contains(keyword: &str, argv: &[~str]) -> uint {
