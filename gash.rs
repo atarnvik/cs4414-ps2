@@ -35,11 +35,7 @@ impl Shell {
     }
     
     fn run(&mut self) {
-<<<<<<< HEAD
-=======
-
-        
->>>>>>> 597d4c3592e3e97f61581dcbe884b7cc1a344cfe
+       
         spawn(proc() {
             let mut listener = Listener::new();
             listener.register(Interrupt);
@@ -50,11 +46,7 @@ impl Shell {
                 }
             }
         });
-<<<<<<< HEAD
-=======
 
-
->>>>>>> 597d4c3592e3e97f61581dcbe884b7cc1a344cfe
         let mut stdin = BufferedReader::new(stdin());
 
         let mut cmdHist = ~[];
@@ -143,6 +135,8 @@ impl Shell {
                 match input_file {
                     Some(mut file) => {
                          buffer = file.read_to_end();
+                         let temp_buffer: ~[u8] = self.redirect_input(commands[i],buffer);
+                         buffer = temp_buffer.clone();
                     } ,
                     _ => {
                         fail!("Error opening input file!");
@@ -152,8 +146,11 @@ impl Shell {
                 println!("buffer = output of {:s} fed to {:s}",commands[i+1].trim(),commands[i].trim());
             } else if state[i] == 2 {
                 println!("buffer = output of {:s} fed to {:s}",commands[i-1].trim(), commands[i+1]);
+                let temp_buffer: ~[u8] = self.redirect_input(commands[i+1],buffer);
+                buffer = temp_buffer.clone();
             } else {
                 println!("Write buffer to file {:s}",commands[i+1].trim());
+                self.write_to_file(commands[i+1],buffer.clone());
             }
         }
 
@@ -177,12 +174,14 @@ impl Shell {
         let process  = run::Process::new(program,argv,Process_Options);
         let mut bytes: ~[u8] = ~[];
         match(process) {
-            Some(mut p)  => {                
-                let writer = p.input();
-                let reader = p.output();
-                writer.write(input);
-                bytes = reader.read_to_end();
-                //let r = p.finish_with_output().output;
+            Some(mut p)  => {        
+                for i in range (0, input.len()) {      
+                    p.input().write_u8(input[i]);
+                }
+                println!("Input written.");
+                //let reader = p.output();
+                //bytes = reader.read_to_end();
+                bytes = p.finish_with_output().output;
             },
             None => ()
         }
@@ -192,7 +191,10 @@ impl Shell {
         return bytes;
     }
 
-    
+    fn write_to_file(&mut self, filename: &str, output: ~[u8]) {
+        let mut output_file = File::create(&Path::new(filename));
+        output_file.write(output);
+    }
 
     //maybe return a pointer to a buffer?
     fn redirect_output(&mut self, cmd_line: &str, background: int) {
@@ -302,7 +304,6 @@ impl Shell {
         //if it only has one argument, just run the command
         else{
             if self.cmd_exists(program) {
-<<<<<<< HEAD
                 let Process_Options = run::ProcessOptions {env: None, dir: None, in_fd: None, out_fd: None, err_fd: None};
                 let process  = run::Process::new(program,argv,Process_Options);
                 match(process) {
@@ -325,7 +326,6 @@ impl Shell {
                         }
                     }
                 });
-=======
                 let output_options = run::process_status(program, argv);
 
                 // loop {
@@ -336,7 +336,6 @@ impl Shell {
                 // }
                 
                 //println!("Output from command that was run in the background:\n{:s}",s);
->>>>>>> 597d4c3592e3e97f61581dcbe884b7cc1a344cfe
             } else {
                 println!("{:s}: command not found", program);
             }

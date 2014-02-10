@@ -1,9 +1,0 @@
-cat
-gash
-gash.rs
-is
-LICENSE
-Makefile
-README.md
-test
-test.txt
