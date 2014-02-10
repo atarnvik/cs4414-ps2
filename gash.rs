@@ -35,6 +35,11 @@ impl Shell {
     }
     
     fn run(&mut self) {
+<<<<<<< HEAD
+=======
+
+        
+>>>>>>> 597d4c3592e3e97f61581dcbe884b7cc1a344cfe
         spawn(proc() {
             let mut listener = Listener::new();
             listener.register(Interrupt);
@@ -45,6 +50,11 @@ impl Shell {
                 }
             }
         });
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 597d4c3592e3e97f61581dcbe884b7cc1a344cfe
         let mut stdin = BufferedReader::new(stdin());
 
         let mut cmdHist = ~[];
@@ -292,6 +302,7 @@ impl Shell {
         //if it only has one argument, just run the command
         else{
             if self.cmd_exists(program) {
+<<<<<<< HEAD
                 let Process_Options = run::ProcessOptions {env: None, dir: None, in_fd: None, out_fd: None, err_fd: None};
                 let process  = run::Process::new(program,argv,Process_Options);
                 match(process) {
@@ -314,6 +325,18 @@ impl Shell {
                         }
                     }
                 });
+=======
+                let output_options = run::process_status(program, argv);
+
+                // loop {
+                //     let output_bytes: &~[u8] = &output_options.unwrap().output;
+                //     //let output_bytes_new = str::from_utf8(output_bytes.to_owned());
+                //     //let s = str::from_utf8(output_bytes.clone().to_owned());
+                //     println(output_bytes.to_str());
+                // }
+                
+                //println!("Output from command that was run in the background:\n{:s}",s);
+>>>>>>> 597d4c3592e3e97f61581dcbe884b7cc1a344cfe
             } else {
                 println!("{:s}: command not found", program);
             }
